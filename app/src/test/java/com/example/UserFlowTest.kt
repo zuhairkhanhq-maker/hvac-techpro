@@ -25,7 +25,14 @@ class UserFlowTest {
 
     @Test fun launchFlowIsActionFocused(){ launch(); compose.onNodeWithTag("launch_home").assertExists(); compose.onNodeWithTag("new_job").assertHasClickAction(); compose.onNodeWithTag("main_equipment").performClick(); compose.onNodeWithTag("add_equipment").assertExists(); compose.onNodeWithTag("main_tools").performClick(); compose.onNodeWithText("Calculators").assertExists(); compose.onNodeWithText("PT reference").assertExists() }
 
-    @Test fun emptyJobCannotBeSaved(){ launch(); compose.onNodeWithTag("new_job").performClick(); compose.onNodeWithTag("new_job_form").assertExists(); compose.onNodeWithTag("save_job").assertIsNotEnabled(); compose.onNodeWithText("Add equipment first from the Equipment tab.").assertExists() }
+    @Test fun emptyJobCannotBeSaved(){
+        launch()
+        compose.onNodeWithTag("new_job").performClick()
+        compose.onNodeWithTag("new_job_form").assertExists()
+        compose.onNodeWithText("Add equipment first from the Equipment tab.").assertExists()
+        compose.onNodeWithTag("new_job_form").performScrollToNode(hasTestTag("save_job"))
+        compose.onNodeWithTag("save_job").assertIsNotEnabled()
+    }
 
     @Test fun plansExplainPaidValue(){ vm.setTier(UserTier.PLUS_USER); launch(); compose.onNodeWithTag("tier_badge_plus_user").performClick(); compose.onNodeWithText("Unlimited equipment and jobs, nameplate OCR, full history, guided workflows and offline PDF reports.").assertExists() }
 }
