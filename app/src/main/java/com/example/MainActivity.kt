@@ -52,9 +52,9 @@ fun HvacApp(viewModel: HvacViewModel) {
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (route) {
                 Route.NEW_JOB -> NewServiceJobScreen(viewModel) { route = Route.MAIN; tab = MainTab.HOME }
-                Route.ERROR_CODES -> ErrorCodesScreen(viewModel) { showPlans = true }
-                Route.GUIDE -> SeniorTechScreen(viewModel) { showPlans = true }
-                Route.A2L -> A2LComplianceScreen(viewModel) { showPlans = true }
+                Route.ERROR_CODES -> ErrorCodesScreen(viewModel, onOpenSubscriptionModal = { showPlans = true })
+                Route.GUIDE -> SeniorTechScreen(viewModel, onOpenSubscriptionModal = { showPlans = true })
+                Route.A2L -> A2LComplianceScreen(viewModel, onOpenSubscriptionModal = { showPlans = true })
                 Route.MAIN -> when (tab) {
                     MainTab.HOME -> LaunchHomeScreen(viewModel, { route = Route.NEW_JOB }, { tab = MainTab.EQUIPMENT }, { showPlans = true })
                     MainTab.EQUIPMENT -> EquipmentRecordsScreen(viewModel)
