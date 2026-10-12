@@ -1,0 +1,6 @@
+{
+  "name": "HVAC TechPro",
+  "description": "Android HVAC toolkit development build: calculator estimates, PT reference, local service logbook, charge worksheet, offline keyword guide and on-device label OCR. Paid tiers are debug previews; no AI diagnosis or compliance certification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
