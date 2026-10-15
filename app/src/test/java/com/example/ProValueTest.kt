@@ -5,7 +5,12 @@ import com.example.report.BackupPayload
 import com.example.report.EncryptedBackupManager
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk=[35])
 class ProValueTest {
     private fun payload(): BackupPayload {
         val customer=Customer(id=1,name="Northside Market")

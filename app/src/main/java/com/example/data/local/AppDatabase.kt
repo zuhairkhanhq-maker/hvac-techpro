@@ -58,8 +58,13 @@ abstract class AppDatabase : RoomDatabase() {
         }
         val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                val existing = mutableSetOf<String>()
+                db.query("PRAGMA table_info(`service_jobs`)").use { cursor ->
+                    val index=cursor.getColumnIndex("name")
+                    while(cursor.moveToNext()) if(index>=0) existing += cursor.getString(index)
+                }
                 listOf("templateName", "checklistResults", "beforePhotoUri", "afterPhotoUri", "technicianSignature", "customerSignature", "reportTerms").forEach {
-                    db.execSQL("ALTER TABLE `service_jobs` ADD COLUMN `$it` TEXT NOT NULL DEFAULT ''")
+                    if(it !in existing) db.execSQL("ALTER TABLE `service_jobs` ADD COLUMN `$it` TEXT NOT NULL DEFAULT ''")
                 }
                 db.execSQL("CREATE TABLE IF NOT EXISTS `inspection_templates` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `items` TEXT NOT NULL, `builtIn` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_inspection_templates_name` ON `inspection_templates` (`name`)")
