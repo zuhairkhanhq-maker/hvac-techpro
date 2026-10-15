@@ -2,6 +2,8 @@
 
 Native Android app using Kotlin, Compose and Room/SQLite. The product centers on customers, equipment, service jobs, offline field tools and professional local reports. Read `MONTH1_BUILD.md` and `LAUNCH_AUDIT.md` before distribution.
 
+Pro includes company logo/contact/terms on reports, before-and-after job photographs, technician and customer approvals, reusable inspection templates, maintenance reminders, a private business dashboard, and password-encrypted backup with verified restore. Customer and job data stays on-device; Android cloud backup is disabled.
+
 ## Run
 
 Use Android Studio with JDK 17, Android SDK 36.1, and Build Tools 36.0.0. Set your local SDK path through Android Studio or `local.properties` (not included). The Gradle wrapper is included.
@@ -21,7 +23,7 @@ Release signing requires the owner's `KEYSTORE_PATH`, `STORE_PASSWORD`, `KEY_PAS
 | --- | --- | --- |
 | Free | Calculators, PT reference, three equipment records and ten completed service jobs | Technical tables and formulas need specialist/manufacturer validation |
 | Plus preview | Unlimited equipment/jobs, history, nameplate OCR, guided workflows, PDF reports and export | Paid activation is not connected |
-| Pro preview | Plus features, report branding and local business summary | Manufacturer data packs are not bundled |
+| Pro preview | Plus features, branded photo reports, approvals, reusable inspections, reminders, encrypted recovery and local business dashboard | Paid activation is not connected |
 
 There is no payment, server entitlement verification, account system, cloud sync, video recognition, live inventory, automatic parts compatibility or automatic circuit tracing in this project. Founding prices are hypotheses, not purchasable offers in this source package.
 

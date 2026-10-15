@@ -20,7 +20,7 @@ class DatabaseRegressionTest {
     private fun log()=TroubleshootingLog(title="Customer note",brand="Carrier / Bryant",equipmentType="AC",symptom="Intermittent",rootCause="Investigating",resolution="Recorded measurements")
     @Test fun concurrentSeedAtomicFavoriteAndPersistence()=runBlocking {
         val c=ApplicationProvider.getApplicationContext<Context>(); val name="crud-${System.nanoTime()}.db"
-        fun open()=Room.databaseBuilder(c,AppDatabase::class.java,name).addMigrations(AppDatabase.MIGRATION_1_2,AppDatabase.MIGRATION_2_3).build()
+        fun open()=Room.databaseBuilder(c,AppDatabase::class.java,name).addMigrations(AppDatabase.MIGRATION_1_2,AppDatabase.MIGRATION_2_3,AppDatabase.MIGRATION_3_4).build()
         var db=open()
         try {
             val dao=db.troubleshootingDao()
@@ -36,7 +36,7 @@ class DatabaseRegressionTest {
     }
     @Test fun upgradePreservesUserRowsAndRetiresOnlyPresets()=runBlocking {
         val c=ApplicationProvider.getApplicationContext<Context>(); val name="upgrade-${System.nanoTime()}.db"
-        fun open()=Room.databaseBuilder(c,AppDatabase::class.java,name).addMigrations(AppDatabase.MIGRATION_1_2,AppDatabase.MIGRATION_2_3).build()
+        fun open()=Room.databaseBuilder(c,AppDatabase::class.java,name).addMigrations(AppDatabase.MIGRATION_1_2,AppDatabase.MIGRATION_2_3,AppDatabase.MIGRATION_3_4).build()
         var db=open()
         try {
             db.troubleshootingDao().seedIfEmpty(); val id=db.troubleshootingDao().insertLog(log()); db.close()
@@ -47,7 +47,7 @@ class DatabaseRegressionTest {
     }
     @Test fun fieldRecordsPersistWithRelationships()=runBlocking {
         val c=ApplicationProvider.getApplicationContext<Context>(); val name="field-${System.nanoTime()}.db"
-        val db=Room.databaseBuilder(c,AppDatabase::class.java,name).addMigrations(AppDatabase.MIGRATION_1_2,AppDatabase.MIGRATION_2_3).build()
+        val db=Room.databaseBuilder(c,AppDatabase::class.java,name).addMigrations(AppDatabase.MIGRATION_1_2,AppDatabase.MIGRATION_2_3,AppDatabase.MIGRATION_3_4).build()
         try { val dao=db.fieldDao(); val customer=dao.insertCustomer(Customer(name="Test customer")); val unit=dao.insertEquipment(Equipment(customerId=customer,nickname="Roof unit",model="ABC123")); dao.insertJob(ServiceJob(equipmentId=unit,complaint="No cooling",findings="Restricted filter",workPerformed="Replaced filter")); assertEquals(1,dao.equipmentCount()); assertEquals(1,dao.jobCount()); assertEquals("ABC123",dao.equipmentById(unit)?.model) } finally { db.close(); c.deleteDatabase(name) }
     }
 }

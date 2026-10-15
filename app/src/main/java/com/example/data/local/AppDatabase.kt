@@ -9,11 +9,13 @@ import com.example.data.model.TroubleshootingLog
 import com.example.data.model.Customer
 import com.example.data.model.Equipment
 import com.example.data.model.ServiceJob
+import com.example.data.model.InspectionTemplate
+import com.example.data.model.MaintenanceReminder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [TroubleshootingLog::class, Customer::class, Equipment::class, ServiceJob::class], version = 3, exportSchema = true)
+@Database(entities = [TroubleshootingLog::class, Customer::class, Equipment::class, ServiceJob::class, InspectionTemplate::class, MaintenanceReminder::class], version = 4, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun troubleshootingDao(): TroubleshootingDao
     abstract fun fieldDao(): FieldDao
@@ -28,7 +30,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "hvac_field_database.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
                 INSTANCE = instance
                 instance
             }
@@ -52,6 +54,24 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_service_jobs_equipmentId` ON `service_jobs` (`equipmentId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_service_jobs_status` ON `service_jobs` (`status`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_service_jobs_startedAt` ON `service_jobs` (`startedAt`)")
+            }
+        }
+        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val existing = mutableSetOf<String>()
+                db.query("PRAGMA table_info(`service_jobs`)").use { cursor ->
+                    val index=cursor.getColumnIndex("name")
+                    while(cursor.moveToNext()) if(index>=0) existing += cursor.getString(index)
+                }
+                listOf("templateName", "checklistResults", "beforePhotoUri", "afterPhotoUri", "technicianSignature", "customerSignature", "reportTerms").forEach {
+                    if(it !in existing) db.execSQL("ALTER TABLE `service_jobs` ADD COLUMN `$it` TEXT NOT NULL DEFAULT ''")
+                }
+                db.execSQL("CREATE TABLE IF NOT EXISTS `inspection_templates` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `items` TEXT NOT NULL, `builtIn` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_inspection_templates_name` ON `inspection_templates` (`name`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `maintenance_reminders` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `equipmentId` INTEGER NOT NULL, `title` TEXT NOT NULL, `notes` TEXT NOT NULL, `dueAt` INTEGER NOT NULL, `completed` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`equipmentId`) REFERENCES `equipment`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_maintenance_reminders_equipmentId` ON `maintenance_reminders` (`equipmentId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_maintenance_reminders_dueAt` ON `maintenance_reminders` (`dueAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_maintenance_reminders_completed` ON `maintenance_reminders` (`completed`)")
             }
         }
         val INITIAL_CHEAT_SHEETS = listOf(

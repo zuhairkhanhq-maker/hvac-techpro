@@ -24,11 +24,15 @@ import com.example.data.model.EquipmentWithCustomer
 import com.example.data.model.UserTier
 import com.example.report.ServiceReportWriter
 import com.example.report.PortableExportWriter
+import com.example.report.ReportIdentity
+import com.example.report.LocalMediaStore
 import com.example.ui.HvacViewModel
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 fun LaunchHomeScreen(viewModel: HvacViewModel, onNewJob: () -> Unit, onEquipment: () -> Unit, onPlans: () -> Unit) {
@@ -113,8 +117,15 @@ private fun AddEquipmentDialog(viewModel: HvacViewModel, dismiss: () -> Unit) {
 @Composable
 fun NewServiceJobScreen(viewModel: HvacViewModel, onDone: () -> Unit) {
     val units by viewModel.equipmentOverview.collectAsState(); val tier by viewModel.currentTier.collectAsState(); val company by viewModel.companyName.collectAsState(); val context = LocalContext.current; val scope = rememberCoroutineScope()
+    val contact by viewModel.companyContact.collectAsState(); val defaultTerms by viewModel.reportTerms.collectAsState(); val logo by viewModel.companyLogoPath.collectAsState(); val templates by viewModel.inspectionTemplates.collectAsState()
     var selected by rememberSaveable { mutableLongStateOf(0) }; var menu by remember { mutableStateOf(false) }; var workflowKey by rememberSaveable { mutableStateOf("general") }; var workflowMenu by remember { mutableStateOf(false) }
     var complaint by rememberSaveable { mutableStateOf("") }; var readings by rememberSaveable { mutableStateOf("") }; var findings by rememberSaveable { mutableStateOf("") }; var work by rememberSaveable { mutableStateOf("") }; var parts by rememberSaveable { mutableStateOf("") }; var recs by rememberSaveable { mutableStateOf("") }
+    var templateId by rememberSaveable { mutableLongStateOf(0) }; var templateMenu by remember { mutableStateOf(false) }; var checklist by rememberSaveable { mutableStateOf("") }
+    var beforePhoto by rememberSaveable { mutableStateOf("") }; var afterPhoto by rememberSaveable { mutableStateOf("") }; var technicianSignature by rememberSaveable { mutableStateOf("") }; var customerSignature by rememberSaveable { mutableStateOf("") }
+    var mediaMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    val beforePicker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri->uri?.let{runCatching{LocalMediaStore.import(context,it,"before_")}.onSuccess{beforePhoto=it;mediaMessage="Before photo attached."}.onFailure{mediaMessage="Before photo could not be imported."}}}
+    val afterPicker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri->uri?.let{runCatching{LocalMediaStore.import(context,it,"after_")}.onSuccess{afterPhoto=it;mediaMessage="After photo attached."}.onFailure{mediaMessage="After photo could not be imported."}}}
+    LaunchedEffect(templateId) { templates.firstOrNull { it.id==templateId }?.let { checklist=it.items.lineSequence().joinToString("\n") { item -> "[ ] $item" } } }
     val workflow = DiagnosticWorkflows.all.firstOrNull { it.key == workflowKey }
     LazyColumn(Modifier.fillMaxSize().testTag("new_job_form"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("New service job", style = MaterialTheme.typography.headlineSmall); Text("Required fields are saved only after you confirm the work.") }
@@ -124,7 +135,8 @@ fun NewServiceJobScreen(viewModel: HvacViewModel, onDone: () -> Unit) {
         item { Box { OutlinedButton(onClick = { workflowMenu = true }, Modifier.fillMaxWidth()) { Text(workflow?.title ?: "General inspection") }; DropdownMenu(workflowMenu, { workflowMenu = false }) { DropdownMenuItem({ Text("General inspection") }, { workflowKey = "general"; workflowMenu = false }); DiagnosticWorkflows.all.forEach { item -> DropdownMenuItem({ Text(item.title) }, { workflowKey = item.key; workflowMenu = false }) } } } }
         workflow?.let { selectedFlow -> item { Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) { Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { Text("Safety", fontWeight = FontWeight.Bold); Text(selectedFlow.safety); selectedFlow.steps.forEachIndexed { i, step -> Text("${i + 1}. $step") } } } } }
         item { MultiField("Measurements and operating conditions", readings) { readings = it } }; item { MultiField("Confirmed findings *", findings) { findings = it } }; item { MultiField("Work performed *", work) { work = it } }; item { MultiField("Parts used", parts) { parts = it } }; item { MultiField("Recommendations", recs) { recs = it } }
-        item { Button(enabled = selected > 0 && complaint.isNotBlank() && findings.isNotBlank() && work.isNotBlank(), onClick = { viewModel.createServiceJob(selected, complaint, workflowKey, readings, findings, work, parts, recs) { id -> if (tier.canCreateReports) scope.launch { viewModel.reportData(id)?.let { (c, e, j) -> ServiceReportWriter.share(context, ServiceReportWriter.create(context, c, e, j, if (tier.canUseBranding) company else "HVAC TechPro Service")) }; onDone() } else onDone() } }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("save_job")) { Icon(Icons.Default.Description, null); Spacer(Modifier.width(8.dp)); Text(if (tier.canCreateReports) "Save and share report" else "Save job") } }
+        if(tier.canUseInspectionTemplates) item { Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Pro inspection proof",fontWeight=FontWeight.Bold);Box{OutlinedButton({templateMenu=true},Modifier.fillMaxWidth()){Text(templates.firstOrNull{it.id==templateId}?.name?:"Choose inspection template")};DropdownMenu(templateMenu,{templateMenu=false}){templates.forEach{t->DropdownMenuItem({Text(t.name)},{templateId=t.id;templateMenu=false})}}};if(checklist.isNotBlank())OutlinedTextField(checklist,{checklist=it},Modifier.fillMaxWidth(),label={Text("Mark completed items [x]")},minLines=5);Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton({beforePicker.launch("image/*")},Modifier.weight(1f)){Text(if(beforePhoto.isBlank())"Before photo" else "Before ✓")};OutlinedButton({afterPicker.launch("image/*")},Modifier.weight(1f)){Text(if(afterPhoto.isBlank())"After photo" else "After ✓")}};Field("Technician approval · full name",technicianSignature){technicianSignature=it};Field("Customer approval · full name",customerSignature){customerSignature=it};Text("Typed names are recorded as approval on this service report. Confirm consent before saving.",style=MaterialTheme.typography.bodySmall);mediaMessage?.let{Text(it,style=MaterialTheme.typography.bodySmall)}}}}
+        item { Button(enabled = selected > 0 && complaint.isNotBlank() && findings.isNotBlank() && work.isNotBlank(), onClick = { val selectedTemplate=templates.firstOrNull{it.id==templateId}; viewModel.createServiceJob(equipmentId=selected, complaint=complaint, workflowKey=workflowKey, readings=readings, findings=findings, workPerformed=work, partsUsed=parts, recommendations=recs, templateName=selectedTemplate?.name.orEmpty(), checklistResults=checklist, beforePhotoUri=beforePhoto, afterPhotoUri=afterPhoto, technicianSignature=technicianSignature, customerSignature=customerSignature, reportTerms=if(tier.canUseBranding) defaultTerms else "") { id -> if (tier.canCreateReports) scope.launch { viewModel.reportData(id)?.let { (c, e, j) -> ServiceReportWriter.share(context, ServiceReportWriter.create(context, c, e, j, if (tier.canUseBranding) ReportIdentity(company,contact,logo) else ReportIdentity("HVAC TechPro Service"))) }; onDone() } else onDone() } }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("save_job")) { Icon(Icons.Default.Description, null); Spacer(Modifier.width(8.dp)); Text(if (tier.canCreateReports) "Save and share report" else "Save job") } }
         item { Text(if (tier.canCreateReports) "The PDF is created locally and shared only when you choose an app." else "Plus adds unlimited records and offline PDF reports.", style = MaterialTheme.typography.bodySmall) }
     }
 }
@@ -144,7 +156,7 @@ fun ReferenceHubScreen(viewModel: HvacViewModel, onErrorCodes: () -> Unit, onGui
 }
 
 @Composable
-fun LaunchSettingsScreen(viewModel: HvacViewModel, onPlans: () -> Unit) {
+fun LaunchSettingsScreen(viewModel: HvacViewModel, onPlans: () -> Unit, onPro: () -> Unit) {
     val tier by viewModel.currentTier.collectAsState()
     val company by viewModel.companyName.collectAsState(); var companyDraft by remember(company) { mutableStateOf(company) }
     val context = LocalContext.current; val scope = rememberCoroutineScope()
@@ -152,11 +164,12 @@ fun LaunchSettingsScreen(viewModel: HvacViewModel, onPlans: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("Settings", style = MaterialTheme.typography.headlineSmall) }
         item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(tier.title, style = MaterialTheme.typography.titleLarge); Text(tier.tagLine); Button(onClick = onPlans, Modifier.fillMaxWidth()) { Text("View plans") } } } }
+        if (tier.canUseBusinessDashboard) item { Button(onClick=onPro,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("Open Pro workspace")}}
         if (tier.canUseBranding) item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Pro report branding", fontWeight = FontWeight.Bold); Field("Company name", companyDraft) { companyDraft = it }; Button(onClick = { viewModel.setCompanyName(companyDraft) }) { Text("Save branding") } } } }
         if (tier.canUseBranding) item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("Local business summary",fontWeight=FontWeight.Bold); Text("${jobs.size} jobs · ${equipment.size} equipment records · ${customers.size} customer records"); Text("Calculated on this device; no tracking or cloud analytics.",style=MaterialTheme.typography.bodySmall) } } }
         if (tier.canCreateReports) item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Portable export", fontWeight = FontWeight.Bold); Text("Create a local JSON copy of customers, equipment and jobs. The destination app you choose controls the exported file."); OutlinedButton(onClick = { scope.launch { val (c,e,j)=viewModel.exportData(); PortableExportWriter.share(context,PortableExportWriter.create(context,c,e,j)) } }, Modifier.fillMaxWidth()) { Text("Export my records") } } } }
         item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("Private by design", fontWeight = FontWeight.Bold); Text("Jobs, equipment, photos and reports remain on this device. The app does not request internet access for field work.") } } }
-        item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("Backup before uninstalling", fontWeight = FontWeight.Bold); Text("Android may erase local records when the app is removed. Encrypted portable backup is a launch gate and is not represented as available yet.") } } }
+        item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("Backup before uninstalling", fontWeight = FontWeight.Bold); Text(if(tier.canUseEncryptedBackup) "Create or restore an encrypted backup from the Pro workspace." else "Android may erase local records when the app is removed. Pro adds encrypted backup and verified restore.") } } }
         item { Text("Technical references and guided checks are support tools. Follow equipment documentation, regulations and qualified safety procedures.", style = MaterialTheme.typography.bodySmall) }
     }
 }
