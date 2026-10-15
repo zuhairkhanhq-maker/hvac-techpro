@@ -34,6 +34,8 @@ import com.example.data.model.EquipmentWithCustomer
 import com.example.data.model.ServiceJob
 import com.example.data.model.NameplateFields
 import com.example.data.model.NameplateParser
+import com.example.data.model.InspectionTemplate
+import com.example.data.model.MaintenanceReminder
 import com.example.data.model.UserTier
 import com.example.data.model.VideoDiagnosticDatabase
 import com.example.data.model.VideoDiagnosticSample
@@ -46,6 +48,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.example.report.BackupPayload
+import com.example.report.EncryptedBackupManager
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -58,6 +62,9 @@ class HvacViewModel(application: Application) : AndroidViewModel(application) {
     val weeklyVideoScansUsed: StateFlow<Int> = userSessionManager.weeklyVideoScansUsed
     val onboardingCompleted: StateFlow<Boolean> = userSessionManager.onboardingCompleted
     val companyName: StateFlow<String> = userSessionManager.companyName
+    val companyContact: StateFlow<String> = userSessionManager.companyContact
+    val reportTerms: StateFlow<String> = userSessionManager.reportTerms
+    val companyLogoPath: StateFlow<String> = userSessionManager.companyLogoPath
 
     private val database = AppDatabase.getInstance(application)
     private val repository = TroubleshootingRepository(database.troubleshootingDao())
@@ -67,6 +74,8 @@ class HvacViewModel(application: Application) : AndroidViewModel(application) {
     val equipment = fieldDao.equipment().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val equipmentOverview = fieldDao.equipmentOverview().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val serviceJobs = fieldDao.jobs().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val inspectionTemplates = fieldDao.templates().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val maintenanceReminders = fieldDao.reminders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val aiService = SeniorTechAiService()
 
@@ -78,7 +87,10 @@ class HvacViewModel(application: Application) : AndroidViewModel(application) {
     private var scanJob: Job? = null
     init {
         viewModelScope.launch {
-            try { repository.ensureInitialData() }
+            try {
+                repository.ensureInitialData()
+                if (fieldDao.allTemplates().isEmpty()) defaultTemplates().forEach { fieldDao.insertTemplate(it) }
+            }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { _operationError.value = "Could not open logbook. Restart and check storage." }
         }
@@ -113,6 +125,8 @@ class HvacViewModel(application: Application) : AndroidViewModel(application) {
     fun createServiceJob(
         equipmentId: Long, complaint: String, workflowKey: String, readings: String,
         findings: String, workPerformed: String, partsUsed: String, recommendations: String,
+        templateName: String = "", checklistResults: String = "", beforePhotoUri: String = "", afterPhotoUri: String = "",
+        technicianSignature: String = "", customerSignature: String = "", reportTerms: String = "",
         onSaved: (Long) -> Unit = {}
     ) {
         if (equipmentId <= 0 || complaint.isBlank() || findings.isBlank() || workPerformed.isBlank()) {
@@ -122,7 +136,7 @@ class HvacViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 if (fieldDao.jobCount() >= currentTier.value.jobLimit) { _operationError.value = "Free includes 10 completed jobs. Plus removes this limit."; return@launch }
-                val id = fieldDao.insertJob(ServiceJob(equipmentId = equipmentId, complaint = complaint.trim(), workflowKey = workflowKey, readings = readings.trim(), findings = findings.trim(), workPerformed = workPerformed.trim(), partsUsed = partsUsed.trim(), recommendations = recommendations.trim()))
+                val id = fieldDao.insertJob(ServiceJob(equipmentId = equipmentId, complaint = complaint.trim(), workflowKey = workflowKey, readings = readings.trim(), findings = findings.trim(), workPerformed = workPerformed.trim(), partsUsed = partsUsed.trim(), recommendations = recommendations.trim(), templateName = templateName.trim(), checklistResults = checklistResults.trim(), beforePhotoUri = beforePhotoUri, afterPhotoUri = afterPhotoUri, technicianSignature = technicianSignature.trim().take(120), customerSignature = customerSignature.trim().take(120), reportTerms = reportTerms.trim().take(2000)))
                 onSaved(id)
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { _operationError.value = "Job was not saved. Your entered information remains on screen." }
@@ -136,6 +150,12 @@ class HvacViewModel(application: Application) : AndroidViewModel(application) {
         return Triple(customer, unit, job)
     }
     suspend fun exportData() = Triple(fieldDao.allCustomers(), fieldDao.allEquipment(), fieldDao.allJobs())
+    suspend fun backupPayload() = BackupPayload(fieldDao.allCustomers(),fieldDao.allEquipment(),fieldDao.allJobs(),fieldDao.allTemplates(),fieldDao.allReminders())
+    suspend fun createEncryptedBackup(password: CharArray): ByteArray = withContext(Dispatchers.Default) { EncryptedBackupManager.encrypt(backupPayload(), password) }
+    suspend fun restoreEncryptedBackup(bytes: ByteArray, password: CharArray) {
+        val payload=withContext(Dispatchers.Default) { EncryptedBackupManager.decrypt(bytes,password) }
+        fieldDao.replaceAll(payload.customers,payload.equipment,payload.jobs,payload.templates.ifEmpty { defaultTemplates() },payload.reminders)
+    }
 
 
     fun setTier(tier: UserTier) {
@@ -148,6 +168,26 @@ class HvacViewModel(application: Application) : AndroidViewModel(application) {
         userSessionManager.setOnboardingCompleted(true)
     }
     fun setCompanyName(value: String) = userSessionManager.setCompanyName(value)
+    fun setBusinessIdentity(name: String, contact: String, terms: String, logoPath: String = companyLogoPath.value) = userSessionManager.setBusinessIdentity(name,contact,terms,logoPath)
+
+    fun addInspectionTemplate(name: String, category: String, items: String) {
+        if (!currentTier.value.canUseInspectionTemplates) return
+        if (name.isBlank() || items.lineSequence().count { it.isNotBlank() } < 2) { _operationError.value="Add a template name and at least two checklist items."; return }
+        viewModelScope.launch { runCatching { fieldDao.insertTemplate(InspectionTemplate(name=name.trim().take(80),category=category.trim().take(40).ifBlank{"Custom"},items=items.lineSequence().map{it.trim()}.filter{it.isNotBlank()}.take(50).joinToString("\n"))) }.onFailure { _operationError.value="Template could not be saved." } }
+    }
+    fun deleteInspectionTemplate(id: Long) { if(currentTier.value.canUseInspectionTemplates) viewModelScope.launch { fieldDao.deleteTemplate(id) } }
+    fun addMaintenanceReminder(equipmentId: Long, title: String, notes: String, dueAt: Long) {
+        if (!currentTier.value.canUseMaintenanceReminders) return
+        if(equipmentId<=0 || title.isBlank() || dueAt<=0) { _operationError.value="Choose equipment, a reminder title and a valid date."; return }
+        viewModelScope.launch { runCatching { fieldDao.insertReminder(MaintenanceReminder(equipmentId=equipmentId,title=title.trim().take(120),notes=notes.trim().take(1000),dueAt=dueAt)) }.onFailure { _operationError.value="Reminder could not be saved." } }
+    }
+    fun setReminderCompleted(id: Long, completed: Boolean) { if(currentTier.value.canUseMaintenanceReminders) viewModelScope.launch { fieldDao.setReminderCompleted(id,completed) } }
+
+    private fun defaultTemplates() = listOf(
+        InspectionTemplate(name="Preventive maintenance",category="Maintenance",items="Confirm disconnect and PPE\nInspect filters and airflow path\nRecord temperature split\nRecord operating pressures and temperatures\nInspect electrical connections\nDocument findings and recommendations",builtIn=true),
+        InspectionTemplate(name="Repair verification",category="Repair",items="Record original complaint\nRecord confirmed cause\nDocument parts installed\nRecord final operating measurements\nVerify normal operation\nExplain result to customer",builtIn=true),
+        InspectionTemplate(name="Startup / commissioning",category="Installation",items="Confirm model and serial\nVerify voltage and phase\nRecord airflow setup\nRecord refrigerant measurements\nVerify controls and safeties\nRecord final startup condition",builtIn=true)
+    )
 
     // -------------------------------------------------------------------------
     // CALCULATORS STATE

@@ -53,9 +53,41 @@ data class ServiceJob(
     val workPerformed: String = "",
     val partsUsed: String = "",
     val recommendations: String = "",
+    val templateName: String = "",
+    val checklistResults: String = "",
+    val beforePhotoUri: String = "",
+    val afterPhotoUri: String = "",
+    val technicianSignature: String = "",
+    val customerSignature: String = "",
+    val reportTerms: String = "",
     val status: String = "COMPLETE",
     val startedAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = System.currentTimeMillis()
+)
+
+@Entity(tableName = "inspection_templates", indices = [Index("name")])
+data class InspectionTemplate(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val category: String,
+    val items: String,
+    val builtIn: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "maintenance_reminders",
+    foreignKeys = [ForeignKey(entity = Equipment::class, parentColumns = ["id"], childColumns = ["equipmentId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("equipmentId"), Index("dueAt"), Index("completed")]
+)
+data class MaintenanceReminder(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val equipmentId: Long,
+    val title: String,
+    val notes: String = "",
+    val dueAt: Long,
+    val completed: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 data class EquipmentWithCustomer(

@@ -23,10 +23,10 @@ fun SubscriptionBottomSheet(currentTier: UserTier, onSelectTier: (UserTier) -> U
                 Card(Modifier.fillMaxWidth().testTag("tier_plan_${tier.name.lowercase()}")) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(tier.title, style = MaterialTheme.typography.titleLarge)
-                        Text(if (tier == UserTier.REGULAR_USER) "Free" else "Founding price hypothesis: ${tier.priceDescription}")
+                        Text(if (tier == UserTier.REGULAR_USER) "Free" else tier.priceDescription)
                         Text(when (tier) {
                             UserTier.PLUS_USER -> "Unlimited equipment and jobs, nameplate OCR, full history, guided workflows and offline PDF reports."
-                            UserTier.PRO_USER -> "Everything in Plus, branded reports and a private on-device business summary."
+                            UserTier.PRO_USER -> "Everything in Plus, branded photo reports, approvals, reusable inspections, maintenance reminders, encrypted recovery and a private business dashboard."
                             else -> "Field calculators, PT reference, 3 equipment records and 10 completed jobs."
                         })
                         Button(enabled = !active && (BuildConfig.DEBUG || tier == UserTier.REGULAR_USER), onClick = { onSelectTier(tier); onDismiss() }, modifier = Modifier.fillMaxWidth().testTag("select_tier_${tier.name.lowercase()}")) {

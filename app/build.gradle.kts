@@ -12,8 +12,8 @@ android {
     applicationId = "com.aistudio.hvactech.rkzpqw"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.1.0-month1"
+    versionCode = 4
+    versionName = "1.2.0-pro-offline"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

@@ -19,6 +19,12 @@ class UserSessionManager(context: Context, private val now: () -> Long = System:
     val onboardingCompleted = _onboardingCompleted.asStateFlow()
     private val _companyName = MutableStateFlow(prefs.getString("company_name", "HVAC TechPro Service") ?: "HVAC TechPro Service")
     val companyName = _companyName.asStateFlow()
+    private val _companyContact = MutableStateFlow(prefs.getString("company_contact", "") ?: "")
+    val companyContact = _companyContact.asStateFlow()
+    private val _reportTerms = MutableStateFlow(prefs.getString("report_terms", "Work and recommendations documented above. Warranty is subject to company terms.") ?: "")
+    val reportTerms = _reportTerms.asStateFlow()
+    private val _companyLogoPath = MutableStateFlow(prefs.getString("company_logo_path", "") ?: "")
+    val companyLogoPath = _companyLogoPath.asStateFlow()
     init { refreshUsageWindow() }
     private fun loadTier(): UserTier {
         val saved = runCatching { UserTier.valueOf(prefs.getString("user_tier", "NEW_USER") ?: "NEW_USER") }.getOrDefault(UserTier.NEW_USER)
@@ -56,6 +62,13 @@ class UserSessionManager(context: Context, private val now: () -> Long = System:
     fun setCompanyName(value: String) {
         val safe = value.trim().take(80).ifBlank { "HVAC TechPro Service" }
         _companyName.value = safe; prefs.edit().putString("company_name", safe).apply()
+    }
+    fun setBusinessIdentity(name: String, contact: String, terms: String, logoPath: String = _companyLogoPath.value) {
+        val safeName = name.trim().take(80).ifBlank { "HVAC TechPro Service" }
+        val safeContact = contact.trim().take(240)
+        val safeTerms = terms.trim().take(2000)
+        _companyName.value=safeName; _companyContact.value=safeContact; _reportTerms.value=safeTerms; _companyLogoPath.value=logoPath
+        prefs.edit().putString("company_name",safeName).putString("company_contact",safeContact).putString("report_terms",safeTerms).putString("company_logo_path",logoPath).apply()
     }
     companion object { const val WEEK_MS = 7L * 24 * 60 * 60 * 1000 }
 }

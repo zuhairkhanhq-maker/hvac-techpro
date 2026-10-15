@@ -27,6 +27,10 @@ enum class UserTier(
     val canCreateReports: Boolean = false,
     val canUseBranding: Boolean = false,
     val canUseAdvancedWorkflows: Boolean = false,
+    val canUseInspectionTemplates: Boolean = false,
+    val canUseMaintenanceReminders: Boolean = false,
+    val canUseEncryptedBackup: Boolean = false,
+    val canUseBusinessDashboard: Boolean = false,
     val weeklyVideoScansAllowed: Int = 3
 ) {
     NEW_USER(
@@ -61,7 +65,7 @@ enum class UserTier(
     PLUS_USER(
         title = "Plus",
         badgeLabel = "PLUS",
-        priceDescription = "$19.99 one-time founding offer",
+        priceDescription = "$19.99/month",
         tagLine = "Unlimited jobs, equipment history, OCR and service reports.",
         canAccessA2LCompliance = true,
         canAccessErrorCodes = true,
@@ -79,8 +83,8 @@ enum class UserTier(
     PRO_USER(
         title = "Pro",
         badgeLabel = "PRO",
-        priceDescription = "$49.99 one-time founding offer",
-        tagLine = "Advanced workflows, branded reports and local analytics.",
+        priceDescription = "$49.99/month",
+        tagLine = "Branded proof, reusable inspections, reminders, encrypted recovery and business insight.",
         canAccessA2LCompliance = true,
         canAccessErrorCodes = true,
         canExportWorksheets = true,
@@ -94,6 +98,10 @@ enum class UserTier(
         canCreateReports = true,
         canUseBranding = true,
         canUseAdvancedWorkflows = true,
+        canUseInspectionTemplates = true,
+        canUseMaintenanceReminders = true,
+        canUseEncryptedBackup = true,
+        canUseBusinessDashboard = true,
         weeklyVideoScansAllowed = Int.MAX_VALUE
     );
 

@@ -34,7 +34,7 @@ private enum class MainTab(val label: String, val icon: ImageVector) {
     TOOLS("Field tools", Icons.Default.Calculate), REFERENCE("Reference", Icons.Default.MenuBook),
     SETTINGS("Settings", Icons.Default.Settings)
 }
-private enum class Route { MAIN, NEW_JOB, ERROR_CODES, GUIDE, A2L }
+private enum class Route { MAIN, NEW_JOB, ERROR_CODES, GUIDE, A2L, PRO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +46,7 @@ fun HvacApp(viewModel: HvacViewModel) {
     if (error != null) AlertDialog(onDismissRequest = viewModel::clearOperationError, title = { Text("Action needs attention") }, text = { Text(error.orEmpty()) }, confirmButton = { TextButton(onClick = viewModel::clearOperationError) { Text("OK") } })
     BackHandler(route != Route.MAIN) { route = Route.MAIN }
     Scaffold(
-        topBar = { TopAppBar(title = { Text(when (route) { Route.NEW_JOB -> "New job"; Route.ERROR_CODES -> "Fault reference"; Route.GUIDE -> "Troubleshooting guide"; Route.A2L -> "A2L worksheet"; else -> "HVAC TechPro" }) }, navigationIcon = { if (route != Route.MAIN) IconButton(onClick = { route = Route.MAIN }) { Icon(Icons.Default.ArrowBack, "Back") } }, actions = { TierBadge(tier = tier, modifier = Modifier.padding(end = 6.dp), onClick = { showPlans = true }) }) },
+        topBar = { TopAppBar(title = { Text(when (route) { Route.NEW_JOB -> "New job"; Route.ERROR_CODES -> "Fault reference"; Route.GUIDE -> "Troubleshooting guide"; Route.A2L -> "A2L worksheet"; Route.PRO -> "Pro workspace"; else -> "HVAC TechPro" }) }, navigationIcon = { if (route != Route.MAIN) IconButton(onClick = { route = Route.MAIN }) { Icon(Icons.Default.ArrowBack, "Back") } }, actions = { TierBadge(tier = tier, modifier = Modifier.padding(end = 6.dp), onClick = { showPlans = true }) }) },
         bottomBar = { if (route == Route.MAIN) NavigationBar { MainTab.entries.forEach { item -> NavigationBarItem(selected = tab == item, onClick = { tab = item }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label, maxLines = 1) }, modifier = Modifier.testTag("main_${item.name.lowercase()}")) } } }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
@@ -55,12 +55,13 @@ fun HvacApp(viewModel: HvacViewModel) {
                 Route.ERROR_CODES -> ErrorCodesScreen(viewModel, onOpenSubscriptionModal = { showPlans = true })
                 Route.GUIDE -> SeniorTechScreen(viewModel, onOpenSubscriptionModal = { showPlans = true })
                 Route.A2L -> A2LComplianceScreen(viewModel, onOpenSubscriptionModal = { showPlans = true })
+                Route.PRO -> ProWorkspaceScreen(viewModel)
                 Route.MAIN -> when (tab) {
                     MainTab.HOME -> LaunchHomeScreen(viewModel, { route = Route.NEW_JOB }, { tab = MainTab.EQUIPMENT }, { showPlans = true })
                     MainTab.EQUIPMENT -> EquipmentRecordsScreen(viewModel)
                     MainTab.TOOLS -> FieldToolsScreen(viewModel)
                     MainTab.REFERENCE -> ReferenceHubScreen(viewModel, { route = Route.ERROR_CODES }, { route = Route.GUIDE }, { route = Route.A2L })
-                    MainTab.SETTINGS -> LaunchSettingsScreen(viewModel) { showPlans = true }
+                    MainTab.SETTINGS -> LaunchSettingsScreen(viewModel, { showPlans = true }, { route = Route.PRO })
                 }
             }
         }
